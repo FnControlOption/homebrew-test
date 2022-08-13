@@ -45,6 +45,7 @@ jobs:
                /opt/homebrew
             NONINTERACTIVE=1 bash -c "$(curl -fsSL https://github.com/bsdbrew/install/raw/HEAD/install.sh)"
             eval "$(/opt/homebrew/bin/brew shellenv)"
+            git clone https://github.com/bsdbrew/homebrew-test-bot $(brew --repo homebrew/test-bot)
             echo "::endgroup::"
 
             echo "::group::Install Homebrew Portable Ruby"

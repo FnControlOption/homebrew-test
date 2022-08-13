@@ -6,35 +6,84 @@ on:
   pull_request:
 jobs:
   test-bot:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-12
     steps:
-      - name: Set up Homebrew
-        id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+      - name: Get Homebrew Bundler RubyGems hash
+        id: get-gems-hash
+        run: |
+          hash="$(curl -fsSL https://github.com/bsdbrew/brew/raw/HEAD/Library/Homebrew/Gemfile.lock | shasum -a 256 | cut -f1 -d' ')"
+          echo "::set-output name=gems-hash::$hash"
 
       - name: Cache Homebrew Bundler RubyGems
         id: cache
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
-          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
-          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
-          restore-keys: ${{ runner.os }}-rubygems-
+          path: ~/work/rubygems
+          key: freebsd-rubygems-${{ steps.get-gems-hash.outputs.gems-hash }}
+          restore-keys: freebsd-rubygems-
 
-      - name: Install Homebrew Bundler RubyGems
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: brew install-bundler-gems
+      - name: Clone Homebrew
+        run: |
+          git clone $(brew --repo) ~/work/homebrew
+          mkdir -p ~/work/homebrew/Library/Taps/homebrew
+          git clone $(brew --repo homebrew/core) ~/work/homebrew/Library/Taps/homebrew/homebrew-core
 
-      - run: brew test-bot --only-cleanup-before
+      - name: Run tests
+        uses: vmactions/freebsd-vm@v0
+        with:
+          usesh: true
 
-      - run: brew test-bot --only-setup
+          prepare: |
+            pkg install -y sudo bash curl git
 
-      - run: brew test-bot --only-tap-syntax
+          run: |
+            set -eo pipefail
 
-      - run: brew test-bot --only-formulae
-        if: github.event_name == 'pull_request'
+            echo "::group::Set up Homebrew"
+            mkdir -p /opt
+            mv ~/work/homebrew \
+               /opt/homebrew
+            NONINTERACTIVE=1 bash -c "$(curl -fsSL https://github.com/bsdbrew/install/raw/HEAD/install.sh)"
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+            echo "::endgroup::"
+
+            echo "::group::Install Homebrew Portable Ruby"
+            brew vendor-install ruby
+            echo "::endgroup::"
+
+            if [ -d ~/work/rubygems ]
+            then
+              mv ~/work/rubygems \
+                 /opt/homebrew/Library/Homebrew/vendor/bundle/ruby
+            fi
+
+            if ${{ steps.cache.outputs.cache-hit != 'true' }}
+            then
+              echo "::group::Install Homebrew Bundler RubyGems"
+              brew install-bundler-gems
+              mv /opt/homebrew/Library/Homebrew/vendor/bundle/ruby \
+                 ~/work/rubygems
+              ln -sfn ~/work/rubygems \
+                      /opt/homebrew/Library/Homebrew/vendor/bundle/ruby
+              echo "::endgroup::"
+            fi
+
+            function run {
+              echo "::group::$@"
+              "$@"
+              echo "::endgroup::"
+            }
+
+            run brew test-bot --only-cleanup-before
+
+            run brew test-bot --only-setup
+
+            run brew test-bot --only-tap-syntax
+
+            if ${{ github.event_name == 'pull_request' }}
+            then
+              run brew test-bot --only-formulae
+            fi
 
       - name: Upload bottles as artifact
         if: always() && github.event_name == 'pull_request'

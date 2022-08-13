@@ -75,10 +75,10 @@ jobs:
               echo "::endgroup::"
             }
 
-            run env
+            run ls /opt/homebrew/bin
             run brew test-bot --only-cleanup-before
 
-            run env
+            run ls /opt/homebrew/bin
             run brew test-bot --only-setup
 
             run brew test-bot --only-tap-syntax

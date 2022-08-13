@@ -76,10 +76,10 @@ jobs:
             }
 
             # run ls /opt/homebrew/bin
-            run brew test-bot --only-cleanup-before
+            # run brew test-bot --only-cleanup-before
 
             # run ls /opt/homebrew/bin
-            eval "$(/opt/homebrew/bin/brew shellenv)"
+            # eval "$(/opt/homebrew/bin/brew shellenv)"
             run brew test-bot --only-setup
 
             run brew test-bot --only-tap-syntax

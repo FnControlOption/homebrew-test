@@ -86,7 +86,7 @@ jobs:
 
             if ${{ github.event_name == 'pull_request' }}
             then
-              run brew test-bot --only-formulae
+              HOMEBREW_STDERR=1 run brew test-bot --only-formulae
             fi
 
       - name: Upload bottles as artifact

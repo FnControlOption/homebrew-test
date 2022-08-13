@@ -68,7 +68,7 @@ jobs:
               echo "::endgroup::"
             fi
 
-            function run {
+            run() {
               echo "::group::$@"
               "$@"
               echo "::endgroup::"
